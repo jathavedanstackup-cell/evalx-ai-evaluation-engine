@@ -1,0 +1,99 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-evalx}
+      POSTGRES_USER: ${POSTGRES_USER:-evalx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evalx_dev_password}
+      POSTGRES_TEST_DB: ${POSTGRES_TEST_DB:-evalx_test}
+      POSTGRES_TEST_USER: ${POSTGRES_TEST_USER:-evalx_test}
+      POSTGRES_TEST_PASSWORD: ${POSTGRES_TEST_PASSWORD:-evalx_test_password}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-test-db.sh:/docker-entrypoint-initdb.d/10-init-test-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-evalx}:${POSTGRES_PASSWORD:-evalx_dev_password}@postgres:5432/${POSTGRES_DB:-evalx}
+      TEST_DATABASE_URL: postgresql+psycopg://${POSTGRES_TEST_USER:-evalx_test}:${POSTGRES_TEST_PASSWORD:-evalx_test_password}@postgres:5432/${POSTGRES_TEST_DB:-evalx_test}
+      REDIS_URL: redis://redis:6379/0
+      TEST_REDIS_URL: redis://redis:6379/1
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      CLERK_JWT_KEY: ${CLERK_JWT_KEY:-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3UrRtszf8tW9813VUb2DDwRM3EjjDw4OcOAV+9Dy5BAA+kGMt8MZGk/T4hyREDcafnYBPAzmgHh0VehjwDkw3JMLBp5autbJhOdY7jaPCnzMnmVVZPBX9RtT8oyZqTgdneI00xz3ULebXHM+diiojmFoHuKzZ4nlYZNCrYJ4IxppWDq5PJA6FMaZz8y/KSqutKpMEsxGh1hyDmPyAgEaFz41wNpiYzy9XFdZ52YHwb4sJ9ccdHGlPxpTNjSCb9OjoAs8hSann1z3Az0yXlt4dGLQNPThrbqFuV9W9Ol/trYy2w5ZkR0hq1fahquRVcnQbZ1lC6QTQoX1xU3oB/oI9wIDAQAB}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["uv", "run", "arq", "app.worker.settings.WorkerSettings"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-evalx}:${POSTGRES_PASSWORD:-evalx_dev_password}@postgres:5432/${POSTGRES_DB:-evalx}
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      ENABLE_SCHEDULER_IN_WORKER: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["uv", "run", "python", "-m", "app.worker.scheduler_runner"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-evalx}:${POSTGRES_PASSWORD:-evalx_dev_password}@postgres:5432/${POSTGRES_DB:-evalx}
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    name: evalx-ai-evaluation-engine_postgres_data
+  redis_data:
+    name: evalx-ai-evaluation-engine_redis_data

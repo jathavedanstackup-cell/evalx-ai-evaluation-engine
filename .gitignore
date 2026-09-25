@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.Python
+build/
+dist/
+
+# Virtual environments and environment files
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# Test and tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# DeepEval local artifacts
+.deepeval/
+.deepeval-cache/
+deepeval-results/
+
+# JavaScript frontend artifacts
+node_modules/
+dist/
+
+# Logs
+*.log
+logs/
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
