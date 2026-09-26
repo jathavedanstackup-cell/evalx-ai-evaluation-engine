@@ -16,6 +16,7 @@ import {
   fetchEvaluationRuns,
   computeOverviewMetrics,
   extractFailureClusters,
+  fetchRunResults,
 } from './services/api';
 import type { BackendHealth } from './services/api';
 import type { EvaluationRun, Dataset } from './types/evalx';
@@ -120,6 +121,14 @@ export default function App() {
     setCurrentView('landing');
   };
 
+  const handleSelectRun = async (run: EvaluationRun) => {
+    setSelectedRun(run);
+    const cases = await fetchRunResults(run.id);
+    if (cases.length > 0) {
+      setSelectedRun((prev) => (prev && prev.id === run.id ? { ...prev, cases } : prev));
+    }
+  };
+
   const handleRunCreated = (newRun: EvaluationRun) => {
     setRuns((prev) => [newRun, ...prev]);
     setSelectedRun(newRun);
@@ -157,7 +166,7 @@ export default function App() {
           <OverviewView
             metrics={metrics}
             recentRuns={runs}
-            onSelectRun={(run) => setSelectedRun(run)}
+            onSelectRun={handleSelectRun}
             onNewRun={() => setIsNewRunModalOpen(true)}
             onNavigateToEvaluations={() => setCurrentView('evaluations')}
             onNavigateToDatasets={() => setCurrentView('datasets')}
@@ -168,7 +177,7 @@ export default function App() {
         {currentView === 'evaluations' && (
           <EvaluationsView
             runs={runs}
-            onSelectRun={(run) => setSelectedRun(run)}
+            onSelectRun={handleSelectRun}
             onNewRun={() => setIsNewRunModalOpen(true)}
           />
         )}

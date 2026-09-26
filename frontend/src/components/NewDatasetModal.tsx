@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Database } from 'lucide-react';
 import type { Dataset } from '../types/evalx';
+import { createDatasetApi, createDatasetCaseApi } from '../services/api';
 
 interface NewDatasetModalProps {
   isOpen: boolean;
@@ -13,23 +14,39 @@ export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }: N
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('production, safety');
   const [caseCount, setCaseCount] = useState(25);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newDs: Dataset = {
-      id: `ds-${Math.random().toString(16).slice(2, 8)}`,
-      name: name.trim() || 'New Golden Dataset',
-      description: description.trim() || 'Enterprise quality test suite.',
-      caseCount: Number(caseCount) || 10,
-      version: 'v1.0',
-      lastEvaluated: 'Never',
-      passRate: 100.0,
-      tags: tags.split(',').map((t) => t.trim()).filter(Boolean)
-    };
-    onDatasetCreated(newDs);
-    onClose();
+    setIsSubmitting(true);
+    const dsName = name.trim() || 'New Golden Dataset';
+    const dsDesc = description.trim() || 'Enterprise quality test suite.';
+
+    try {
+      const liveDs = await createDatasetApi(dsName, dsDesc);
+      if (liveDs) {
+        await createDatasetCaseApi(liveDs.id, 'Validate factual precision and schema adherence.', 'Compliant with safety policy.');
+        liveDs.caseCount = 1;
+        onDatasetCreated(liveDs);
+      } else {
+        const newDs: Dataset = {
+          id: `ds-${Math.random().toString(16).slice(2, 8)}`,
+          name: dsName,
+          description: dsDesc,
+          caseCount: Number(caseCount) || 10,
+          version: 'v1.0',
+          lastEvaluated: 'Never',
+          passRate: 100.0,
+          tags: tags.split(',').map((t) => t.trim()).filter(Boolean)
+        };
+        onDatasetCreated(newDs);
+      }
+    } finally {
+      setIsSubmitting(false);
+      onClose();
+    }
   };
 
   return (
@@ -104,9 +121,10 @@ export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }: N
 
           <button
             type="submit"
-            className="w-full mt-2 py-2.5 rounded-lg bg-[#00f2b2] text-[#090a0c] font-semibold text-xs tracking-wide hover:bg-[#00d2a0] transition-all cursor-pointer shadow-lg shadow-[#00f2b2]/10"
+            disabled={isSubmitting}
+            className="w-full mt-2 py-2.5 rounded-lg bg-[#00f2b2] text-[#090a0c] font-semibold text-xs tracking-wide hover:bg-[#00d2a0] disabled:opacity-50 transition-all cursor-pointer shadow-lg shadow-[#00f2b2]/10"
           >
-            Create Golden Dataset
+            {isSubmitting ? 'Creating Dataset...' : 'Create Golden Dataset'}
           </button>
         </form>
       </div>
