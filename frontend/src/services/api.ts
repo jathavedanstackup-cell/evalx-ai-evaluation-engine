@@ -1,6 +1,6 @@
 import type { EvaluationRun, Dataset, OverviewMetrics, FailureCluster } from '../types/evalx';
 
-export const BACKEND_URL = (import.meta.env.VITE_API_BASE_URL || 'https://api-production-bf18c.up.railway.app').replace(/\/+$/, '');
+export const BACKEND_URL = '';
 
 export interface BackendHealth {
   status: 'online' | 'degraded' | 'offline';
@@ -17,17 +17,6 @@ export interface ApiResponse<T> {
   data: T;
   unauthenticated: boolean;
   error?: string;
-}
-
-// In-memory session authentication management
-let sessionToken: string | null = null;
-
-export function setAuthToken(token: string | null): void {
-  sessionToken = token;
-}
-
-export function getAuthToken(): string | null {
-  return sessionToken;
 }
 
 // Check real Railway backend health and worker telemetry
@@ -81,12 +70,12 @@ export async function checkBackendHealth(): Promise<BackendHealth> {
 
 // Fetch real datasets from Railway backend
 export async function fetchDatasets(token?: string): Promise<ApiResponse<Dataset[]>> {
-  const effectiveToken = token || getAuthToken() || '';
+  const effectiveToken = token || localStorage.getItem('evalx_auth_token') || '';
   if (!effectiveToken) {
     return {
       data: [],
       unauthenticated: true,
-      error: 'Authentication Required: Please sign in to access datasets'
+      error: 'Authentication Required: No Bearer token provided for /api/v1/datasets'
     };
   }
 
@@ -104,7 +93,7 @@ export async function fetchDatasets(token?: string): Promise<ApiResponse<Dataset
       return {
         data: [],
         unauthenticated: true,
-        error: 'HTTP 401: Session expired or unauthorized for /api/v1/datasets'
+        error: 'HTTP 401 Unauthorized: Invalid or missing token for /api/v1/datasets'
       };
     }
 
@@ -144,12 +133,12 @@ export async function fetchDatasets(token?: string): Promise<ApiResponse<Dataset
 
 // Fetch real evaluation runs from Railway backend
 export async function fetchEvaluationRuns(token?: string): Promise<ApiResponse<EvaluationRun[]>> {
-  const effectiveToken = token || getAuthToken() || '';
+  const effectiveToken = token || localStorage.getItem('evalx_auth_token') || '';
   if (!effectiveToken) {
     return {
       data: [],
       unauthenticated: true,
-      error: 'Authentication Required: Please sign in to access evaluation runs'
+      error: 'Authentication Required: No Bearer token provided for /api/v1/evaluations/runs'
     };
   }
 
@@ -167,7 +156,7 @@ export async function fetchEvaluationRuns(token?: string): Promise<ApiResponse<E
       return {
         data: [],
         unauthenticated: true,
-        error: 'HTTP 401: Session expired or unauthorized for /api/v1/evaluations/runs'
+        error: 'HTTP 401 Unauthorized: Invalid or missing token for /api/v1/evaluations/runs'
       };
     }
 

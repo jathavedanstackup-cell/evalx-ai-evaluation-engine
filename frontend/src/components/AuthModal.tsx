@@ -11,6 +11,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [apiToken, setApiToken] = useState('');
+  const [showTokenInput, setShowTokenInput] = useState(false);
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
@@ -20,7 +22,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      onSuccess(email || 'engineer@evalx.ai');
+      onSuccess(email || 'engineer@evalx.ai', apiToken || undefined);
       onClose();
     }, 300);
   };
@@ -95,6 +97,32 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
               placeholder="••••••••••••"
               className="w-full px-3.5 py-2.5 rounded-lg bg-black/50 border border-white/10 text-white placeholder-white/25 text-sm focus:outline-none focus:border-[#00f2b2] focus:ring-1 focus:ring-[#00f2b2] transition-colors"
             />
+          </div>
+
+          {/* Optional Direct Railway API Token Input */}
+          <div className="pt-1">
+            {!showTokenInput ? (
+              <button
+                type="button"
+                onClick={() => setShowTokenInput(true)}
+                className="text-[11px] text-white/40 hover:text-[#00f2b2] transition-colors font-mono-num"
+              >
+                + Connect Railway API Bearer Token
+              </button>
+            ) : (
+              <div>
+                <label className="block text-[11px] font-mono-num text-[#00f2b2] mb-1">
+                  Railway Bearer Token
+                </label>
+                <input
+                  type="password"
+                  value={apiToken}
+                  onChange={(e) => setApiToken(e.target.value)}
+                  placeholder="Bearer token or Clerk JWT..."
+                  className="w-full px-3 py-2 rounded-lg bg-black/70 border border-[#00f2b2]/30 text-white placeholder-white/20 text-xs font-mono-num focus:outline-none focus:border-[#00f2b2]"
+                />
+              </div>
+            )}
           </div>
 
           {/* Primary Action Button */}

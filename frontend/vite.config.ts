@@ -4,4 +4,12 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://api-production-bf18c.up.railway.app',
+        changeOrigin: true,
+      },
+    },
+  },
 })

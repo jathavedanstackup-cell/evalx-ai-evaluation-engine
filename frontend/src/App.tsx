@@ -16,14 +16,15 @@ import {
   fetchEvaluationRuns,
   computeOverviewMetrics,
   extractFailureClusters,
-  setAuthToken,
 } from './services/api';
 import type { BackendHealth } from './services/api';
 import type { EvaluationRun, Dataset } from './types/evalx';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'landing' | 'overview' | 'evaluations' | 'datasets' | 'insights'>('landing');
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return Boolean(localStorage.getItem('evalx_auth_token'));
+  });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isNewRunModalOpen, setIsNewRunModalOpen] = useState<boolean>(false);
   const [isNewDatasetModalOpen, setIsNewDatasetModalOpen] = useState<boolean>(false);
@@ -31,7 +32,9 @@ export default function App() {
 
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [runs, setRuns] = useState<EvaluationRun[]>([]);
-  const [isUnauthenticated, setIsUnauthenticated] = useState<boolean>(true);
+  const [isUnauthenticated, setIsUnauthenticated] = useState<boolean>(() => {
+    return !localStorage.getItem('evalx_auth_token');
+  });
 
   const [backendHealth, setBackendHealth] = useState<BackendHealth>({
     status: 'online',
@@ -100,7 +103,7 @@ export default function App() {
     setIsAuthenticated(true);
     setIsUnauthenticated(false);
     if (sessionToken) {
-      setAuthToken(sessionToken);
+      localStorage.setItem('evalx_auth_token', sessionToken);
       loadBackendData(sessionToken);
     } else {
       loadBackendData();
@@ -111,7 +114,9 @@ export default function App() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     setIsUnauthenticated(true);
-    setAuthToken(null);
+    localStorage.removeItem('evalx_auth_token');
+    setDatasets([]);
+    setRuns([]);
     setCurrentView('landing');
   };
 

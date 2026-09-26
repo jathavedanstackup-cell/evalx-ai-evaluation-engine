@@ -196,7 +196,7 @@ export default function LandingPage({ onLaunchConsole, onOpenAuth }: LandingPage
               <div className="space-y-2 text-[11px]">
                 <div className="flex justify-between p-2 rounded bg-black/40 border border-white/5">
                   <span className="text-white/50">API Gateway</span>
-                  <span className="text-white">{(() => { try { return new URL(BACKEND_URL).host; } catch { return BACKEND_URL; } })()}</span>
+                  <span className="text-white">api-production-bf18c.up.railway.app</span>
                 </div>
                 <div className="flex justify-between p-2 rounded bg-black/40 border border-white/5">
                   <span className="text-white/50">Quality Certification</span>
