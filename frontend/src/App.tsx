@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAuth, useClerk } from '@clerk/clerk-react';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LandingPage from './views/LandingPage';
@@ -16,16 +17,15 @@ import {
   fetchEvaluationRuns,
   computeOverviewMetrics,
   extractFailureClusters,
-  fetchRunResults,
 } from './services/api';
 import type { BackendHealth } from './services/api';
 import type { EvaluationRun, Dataset } from './types/evalx';
 
 export default function App() {
+  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { signOut } = useClerk();
+
   const [currentView, setCurrentView] = useState<'landing' | 'overview' | 'evaluations' | 'datasets' | 'insights'>('landing');
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return Boolean(localStorage.getItem('evalx_auth_token'));
-  });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isNewRunModalOpen, setIsNewRunModalOpen] = useState<boolean>(false);
   const [isNewDatasetModalOpen, setIsNewDatasetModalOpen] = useState<boolean>(false);
@@ -33,9 +33,8 @@ export default function App() {
 
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [runs, setRuns] = useState<EvaluationRun[]>([]);
-  const [isUnauthenticated, setIsUnauthenticated] = useState<boolean>(() => {
-    return !localStorage.getItem('evalx_auth_token');
-  });
+  const [isUnauthenticated, setIsUnauthenticated] = useState<boolean>(!isSignedIn);
+  const [activeToken, setActiveToken] = useState<string | null>(null);
 
   const [backendHealth, setBackendHealth] = useState<BackendHealth>({
     status: 'online',
@@ -47,11 +46,16 @@ export default function App() {
 
   // Verify Railway live backend & load real data
   const loadBackendData = useCallback(async (token?: string) => {
-    // 1. Probe public live & worker telemetry from Railway
     const health = await checkBackendHealth();
     setBackendHealth(health);
 
-    // 2. Fetch protected datasets and evaluation runs
+    if (!token) {
+      setIsUnauthenticated(true);
+      setDatasets([]);
+      setRuns([]);
+      return;
+    }
+
     const [dsRes, runsRes] = await Promise.all([
       fetchDatasets(token),
       fetchEvaluationRuns(token)
@@ -66,32 +70,58 @@ export default function App() {
     }
   }, []);
 
+  // Fetch token and sync with Clerk auth state
   useEffect(() => {
-    let active = true;
+    let isMounted = true;
+    if (!isLoaded) return;
 
-    const runSync = async () => {
-      await loadBackendData();
+    if (isSignedIn) {
+      getToken().then((token) => {
+        if (isMounted) {
+          setActiveToken(token);
+          if (token) {
+            loadBackendData(token);
+          }
+        }
+      }).catch((err) => {
+        console.error('Error fetching Clerk session token:', err);
+      });
+    } else {
+      Promise.resolve().then(() => {
+        if (isMounted) {
+          setActiveToken(null);
+          setIsUnauthenticated(true);
+          setDatasets([]);
+          setRuns([]);
+        }
+      });
+    }
+    return () => {
+      isMounted = false;
     };
-    void runSync();
+  }, [isLoaded, isSignedIn, getToken, loadBackendData]);
+
+  // Periodic health check
+  useEffect(() => {
+    checkBackendHealth().then((health) => {
+      setBackendHealth(health);
+    });
 
     const interval = setInterval(() => {
       checkBackendHealth().then((health) => {
-        if (active) setBackendHealth(health);
+        setBackendHealth(health);
       });
     }, 20000);
 
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [loadBackendData]);
+    return () => clearInterval(interval);
+  }, []);
 
   // Deterministically compute overview metrics from actual runs and live probe latency
   const metrics = useMemo(() => {
     return computeOverviewMetrics(runs, backendHealth.latencyMs, datasets.length, isUnauthenticated);
   }, [runs, backendHealth.latencyMs, datasets.length, isUnauthenticated]);
 
-  // Extract real failure clusters from actual failed cases
+  // Generate real failure clusters from actual failed cases
   const clusters = useMemo(() => {
     return extractFailureClusters(runs);
   }, [runs]);
@@ -100,33 +130,30 @@ export default function App() {
     setCurrentView('overview');
   };
 
-  const handleAuthSuccess = (_userEmail: string, sessionToken?: string) => {
-    setIsAuthenticated(true);
-    setIsUnauthenticated(false);
-    if (sessionToken) {
-      localStorage.setItem('evalx_auth_token', sessionToken);
-      loadBackendData(sessionToken);
-    } else {
-      loadBackendData();
+  const handleAuthSuccess = async () => {
+    try {
+      const token = await getToken();
+      if (token) {
+        setActiveToken(token);
+        await loadBackendData(token);
+      }
+    } catch (err) {
+      console.error('Error acquiring token after auth:', err);
     }
     setCurrentView('overview');
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setIsUnauthenticated(true);
-    localStorage.removeItem('evalx_auth_token');
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (err) {
+      console.error('SignOut error:', err);
+    }
+    setActiveToken(null);
     setDatasets([]);
     setRuns([]);
+    setIsUnauthenticated(true);
     setCurrentView('landing');
-  };
-
-  const handleSelectRun = async (run: EvaluationRun) => {
-    setSelectedRun(run);
-    const cases = await fetchRunResults(run.id);
-    if (cases.length > 0) {
-      setSelectedRun((prev) => (prev && prev.id === run.id ? { ...prev, cases } : prev));
-    }
   };
 
   const handleRunCreated = (newRun: EvaluationRun) => {
@@ -147,7 +174,7 @@ export default function App() {
       <Navbar
         currentView={currentView}
         setCurrentView={setCurrentView}
-        isAuthenticated={isAuthenticated}
+        isAuthenticated={Boolean(isSignedIn)}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onOpenNewRun={() => setIsNewRunModalOpen(true)}
         onLogout={handleLogout}
@@ -166,7 +193,7 @@ export default function App() {
           <OverviewView
             metrics={metrics}
             recentRuns={runs}
-            onSelectRun={handleSelectRun}
+            onSelectRun={(run) => setSelectedRun(run)}
             onNewRun={() => setIsNewRunModalOpen(true)}
             onNavigateToEvaluations={() => setCurrentView('evaluations')}
             onNavigateToDatasets={() => setCurrentView('datasets')}
@@ -177,7 +204,7 @@ export default function App() {
         {currentView === 'evaluations' && (
           <EvaluationsView
             runs={runs}
-            onSelectRun={handleSelectRun}
+            onSelectRun={(run) => setSelectedRun(run)}
             onNewRun={() => setIsNewRunModalOpen(true)}
           />
         )}
@@ -208,12 +235,14 @@ export default function App() {
         isOpen={isNewRunModalOpen}
         onClose={() => setIsNewRunModalOpen(false)}
         datasets={datasets}
+        token={activeToken || undefined}
         onRunCreated={handleRunCreated}
       />
 
       <NewDatasetModal
         isOpen={isNewDatasetModalOpen}
         onClose={() => setIsNewDatasetModalOpen(false)}
+        token={activeToken || undefined}
         onDatasetCreated={handleDatasetCreated}
       />
 

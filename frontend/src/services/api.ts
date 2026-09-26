@@ -1,6 +1,6 @@
-import type { EvaluationRun, Dataset, OverviewMetrics, FailureCluster, TestCaseResult } from '../types/evalx';
+import type { EvaluationRun, Dataset, OverviewMetrics, FailureCluster } from '../types/evalx';
 
-export const BACKEND_URL = '';
+export const BACKEND_URL = import.meta.env.VITE_API_BASE_URL || 'https://api-production-bf18c.up.railway.app';
 
 export interface BackendHealth {
   status: 'online' | 'degraded' | 'offline';
@@ -70,12 +70,12 @@ export async function checkBackendHealth(): Promise<BackendHealth> {
 
 // Fetch real datasets from Railway backend
 export async function fetchDatasets(token?: string): Promise<ApiResponse<Dataset[]>> {
-  const effectiveToken = token || localStorage.getItem('evalx_auth_token') || '';
+  const effectiveToken = token || '';
   if (!effectiveToken) {
     return {
       data: [],
       unauthenticated: true,
-      error: 'Authentication Required: No Bearer token provided for /api/v1/datasets'
+      error: 'Authentication Required: No active session token for /api/v1/datasets'
     };
   }
 
@@ -93,7 +93,7 @@ export async function fetchDatasets(token?: string): Promise<ApiResponse<Dataset
       return {
         data: [],
         unauthenticated: true,
-        error: 'HTTP 401 Unauthorized: Invalid or missing token for /api/v1/datasets'
+        error: 'HTTP 401 Unauthorized: Invalid or expired session token for /api/v1/datasets'
       };
     }
 
@@ -133,12 +133,12 @@ export async function fetchDatasets(token?: string): Promise<ApiResponse<Dataset
 
 // Fetch real evaluation runs from Railway backend
 export async function fetchEvaluationRuns(token?: string): Promise<ApiResponse<EvaluationRun[]>> {
-  const effectiveToken = token || localStorage.getItem('evalx_auth_token') || '';
+  const effectiveToken = token || '';
   if (!effectiveToken) {
     return {
       data: [],
       unauthenticated: true,
-      error: 'Authentication Required: No Bearer token provided for /api/v1/evaluations/runs'
+      error: 'Authentication Required: No active session token for /api/v1/evaluations/runs'
     };
   }
 
@@ -170,30 +170,25 @@ export async function fetchEvaluationRuns(token?: string): Promise<ApiResponse<E
 
     const json = await res.json();
     const items = json.items || [];
-    const mapped: EvaluationRun[] = items.map((r: { id: string; name?: string; model?: string; dataset_id?: string; status: string; overall_score?: number | null; score?: number; total_cases?: number; completed_cases?: number; passed_cases?: number; failed_cases?: number; regressions_count?: number; latency_avg_ms?: number; duration_ms?: number; created_at: string; completed_at?: string; triggered_by?: string }) => {
-      const scoreRaw = r.overall_score !== undefined ? (r.overall_score !== null ? r.overall_score * 100 : 0) : (r.score ?? 0);
-      const total = r.total_cases || 0;
-      const passed = r.completed_cases ?? r.passed_cases ?? 0;
-      return {
-        id: r.id,
-        name: r.name || `Evaluation ${r.id.slice(0, 8)}`,
-        model: r.model || 'GPT-4o (Evaluator)',
-        datasetId: r.dataset_id || '',
-        datasetName: `Dataset ${r.dataset_id?.slice(0, 8)}`,
-        status: (r.status as EvaluationRun['status']) || 'completed',
-        score: Math.round(scoreRaw),
-        passRate: total > 0 ? Math.round((passed / total) * 100) : Math.round(scoreRaw),
-        totalCases: total,
-        passedCases: passed,
-        failedCases: r.failed_cases || 0,
-        regressionsCount: r.regressions_count || 0,
-        latencyAvgMs: Math.round(r.duration_ms || r.latency_avg_ms || 0),
-        createdAt: new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        completedAt: r.completed_at ? new Date(r.completed_at).toLocaleTimeString() : undefined,
-        triggeredBy: r.triggered_by || 'API / Web Console',
-        evaluators: []
-      };
-    });
+    const mapped: EvaluationRun[] = items.map((r: { id: string; name: string; model: string; dataset_id: string; status: string; score?: number; total_cases?: number; passed_cases?: number; failed_cases?: number; regressions_count?: number; latency_avg_ms?: number; created_at: string; completed_at?: string; triggered_by?: string }) => ({
+      id: r.id,
+      name: r.name || `Evaluation ${r.id.slice(0, 8)}`,
+      model: r.model || 'unknown-model',
+      datasetId: r.dataset_id || '',
+      datasetName: `Dataset ${r.dataset_id?.slice(0, 8)}`,
+      status: (r.status as EvaluationRun['status']) || 'completed',
+      score: r.score ?? 0,
+      passRate: r.total_cases ? Math.round(((r.passed_cases || 0) / r.total_cases) * 100) : 0,
+      totalCases: r.total_cases || 0,
+      passedCases: r.passed_cases || 0,
+      failedCases: r.failed_cases || 0,
+      regressionsCount: r.regressions_count || 0,
+      latencyAvgMs: r.latency_avg_ms || 0,
+      createdAt: new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      completedAt: r.completed_at ? new Date(r.completed_at).toLocaleTimeString() : undefined,
+      triggeredBy: r.triggered_by || 'API / Web Console',
+      evaluators: []
+    }));
 
     return {
       data: mapped,
@@ -255,7 +250,7 @@ export function extractFailureClusters(runs: EvaluationRun[]): FailureCluster[] 
   const failureMap = new Map<string, { count: number; sample: string }>();
 
   for (const run of runs) {
-    if (run.cases && run.cases.length > 0) {
+    if (run.cases) {
       for (const c of run.cases) {
         if (!c.passed) {
           const reason = c.failureReason || 'Assertion mismatch';
@@ -264,11 +259,6 @@ export function extractFailureClusters(runs: EvaluationRun[]): FailureCluster[] 
           failureMap.set(reason, existing);
         }
       }
-    } else if (run.failedCases > 0) {
-      const reason = 'Exact Match Assertion Mismatch';
-      const existing = failureMap.get(reason) || { count: 0, sample: `Run ${run.id.slice(0, 8)}: Response did not match expected output.` };
-      existing.count += run.failedCases;
-      failureMap.set(reason, existing);
     }
   }
 
@@ -290,142 +280,109 @@ export function extractFailureClusters(runs: EvaluationRun[]): FailureCluster[] 
   return clusters;
 }
 
-// Fetch case-level evaluation results for a run
-export async function fetchRunResults(runId: string, token?: string): Promise<TestCaseResult[]> {
-  const effectiveToken = token || localStorage.getItem('evalx_auth_token') || '';
-  if (!effectiveToken) return [];
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/v1/evaluations/runs/${runId}/results`, {
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${effectiveToken}`
-      }
-    });
-    if (!res.ok) return [];
-    const json = await res.json();
-    const items = json.items || [];
-    return items.map((item: { id: string; case_id: string; response?: string; overall_score?: number | null; passed?: boolean; feedback?: string; execution_time_ms?: number }, idx: number) => ({
-      id: item.id,
-      caseNumber: idx + 1,
-      inputPrompt: `Case ${item.case_id.slice(0, 8)}`,
-      expectedOutput: 'Continuous evaluation to catch accuracy degradation in production AI systems.',
-      actualOutput: item.response || '',
-      passed: Boolean(item.passed),
-      regression: !item.passed,
-      latencyMs: Math.round(item.execution_time_ms || 2),
-      tokensUsed: 120,
-      evaluatorBreakdown: [
-        {
-          name: 'Instruction Following / Assertion',
-          passed: Boolean(item.passed),
-          score: item.overall_score ?? (item.passed ? 1.0 : 0.0),
-          details: item.feedback || undefined
-        }
-      ],
-      failureReason: item.feedback || (!item.passed ? 'Assertion threshold failed' : undefined)
-    }));
-  } catch {
-    return [];
+// Create a real dataset on Railway backend
+export async function createDataset(
+  token: string,
+  data: { name: string; description?: string }
+): Promise<Dataset> {
+  const res = await fetch(`${BACKEND_URL}/api/v1/datasets`, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to create dataset (${res.status}): ${text}`);
   }
+
+  const item = await res.json();
+  return {
+    id: item.id,
+    name: item.name,
+    description: item.description || 'Golden benchmark dataset',
+    caseCount: item.case_count || 0,
+    version: item.version || 'v1.0',
+    lastEvaluated: 'Never',
+    passRate: 100,
+    tags: ['benchmark']
+  };
 }
 
-// Create a new Golden Dataset via API
-export async function createDatasetApi(name: string, description: string, token?: string): Promise<Dataset | null> {
-  const effectiveToken = token || localStorage.getItem('evalx_auth_token') || '';
-  if (!effectiveToken) return null;
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/v1/datasets`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${effectiveToken}`
-      },
-      body: JSON.stringify({ name, description })
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return {
-      id: json.id,
-      name: json.name,
-      description: json.description || 'Golden dataset suite',
-      caseCount: json.case_count || 0,
-      version: json.version || 'v1.0',
-      lastEvaluated: 'Never',
-      passRate: 100,
-      tags: ['benchmark']
-    };
-  } catch {
-    return null;
+// Create a test case for a dataset on Railway backend
+export async function createDatasetCase(
+  token: string,
+  datasetId: string,
+  data: { input: string; expected_output?: string }
+): Promise<{ id: string; input: string; expected_output?: string }> {
+  const res = await fetch(`${BACKEND_URL}/api/v1/datasets/${datasetId}/cases`, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to create dataset case (${res.status}): ${text}`);
   }
+
+  return await res.json();
 }
 
-// Create a test case for a dataset via API
-export async function createDatasetCaseApi(datasetId: string, input: string, expectedOutput: string, token?: string): Promise<boolean> {
-  const effectiveToken = token || localStorage.getItem('evalx_auth_token') || '';
-  if (!effectiveToken) return false;
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/v1/datasets/${datasetId}/cases`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${effectiveToken}`
-      },
-      body: JSON.stringify({ input, expected_output: expectedOutput })
-    });
-    return res.ok;
-  } catch {
-    return false;
+// Launch a real evaluation run on Railway backend
+export async function createEvaluationRun(
+  token: string,
+  data: {
+    dataset_id: string;
+    name?: string;
+    model_provider?: string;
+    model_name?: string;
+    evaluators?: Array<{ evaluator_type: string; backend: string; name?: string }>;
+    responses?: Array<{ case_id: string; response: string }>;
   }
+): Promise<EvaluationRun> {
+  const res = await fetch(`${BACKEND_URL}/api/v1/evaluations/runs`, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
+  });
+
+  if (!res.ok && res.status !== 202 && res.status !== 201) {
+    const text = await res.text();
+    throw new Error(`Failed to launch evaluation run (${res.status}): ${text}`);
+  }
+
+  const r = await res.json();
+  return {
+    id: r.id,
+    name: r.name || `Evaluation ${r.id.slice(0, 8)}`,
+    model: r.model || data.model_name || 'custom-model',
+    datasetId: r.dataset_id || data.dataset_id,
+    datasetName: `Dataset ${(r.dataset_id || data.dataset_id).slice(0, 8)}`,
+    status: (r.status as EvaluationRun['status']) || 'pending',
+    score: r.score ?? 0,
+    passRate: r.total_cases ? Math.round(((r.passed_cases || 0) / r.total_cases) * 100) : 0,
+    totalCases: r.total_cases || 0,
+    passedCases: r.passed_cases || 0,
+    failedCases: r.failed_cases || 0,
+    regressionsCount: r.regressions_count || 0,
+    latencyAvgMs: r.latency_avg_ms || 0,
+    createdAt: new Date(r.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    completedAt: r.completed_at ? new Date(r.completed_at).toLocaleTimeString() : undefined,
+    triggeredBy: r.triggered_by || 'API / Web Console',
+    evaluators: []
+  };
 }
 
-// Trigger an asynchronous evaluation run via API
-export async function triggerRunApi(datasetId: string, name: string, token?: string): Promise<EvaluationRun | null> {
-  const effectiveToken = token || localStorage.getItem('evalx_auth_token') || '';
-  if (!effectiveToken) return null;
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/v1/evaluations/runs`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${effectiveToken}`
-      },
-      body: JSON.stringify({
-        dataset_id: datasetId,
-        name: name || 'Live Evaluation Run',
-        evaluators: [
-          {
-            evaluator_type: 'instruction_following',
-            backend: 'native',
-            threshold: 0.8,
-            weight: 1.0
-          }
-        ]
-      })
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return {
-      id: json.id,
-      name: json.name || name || `Evaluation ${json.id.slice(0, 8)}`,
-      model: 'GPT-4o (Evaluator)',
-      datasetId: json.dataset_id,
-      datasetName: `Dataset ${json.dataset_id.slice(0, 8)}`,
-      status: (json.status as EvaluationRun['status']) || 'queued',
-      score: 0,
-      passRate: 0,
-      totalCases: json.total_cases || 0,
-      passedCases: 0,
-      failedCases: 0,
-      regressionsCount: 0,
-      latencyAvgMs: 0,
-      createdAt: new Date(json.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      triggeredBy: 'Web Console',
-      evaluators: []
-    };
-  } catch {
-    return null;
-  }
-}

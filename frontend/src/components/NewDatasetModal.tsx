@@ -1,52 +1,68 @@
 import { useState } from 'react';
 import { X, Database } from 'lucide-react';
 import type { Dataset } from '../types/evalx';
-import { createDatasetApi, createDatasetCaseApi } from '../services/api';
+import { createDataset, createDatasetCase } from '../services/api';
 
 interface NewDatasetModalProps {
   isOpen: boolean;
   onClose: () => void;
+  token?: string;
   onDatasetCreated: (dataset: Dataset) => void;
 }
 
-export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }: NewDatasetModalProps) {
+export default function NewDatasetModal({ isOpen, onClose, token, onDatasetCreated }: NewDatasetModalProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('production, safety');
   const [caseCount, setCaseCount] = useState(25);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    const dsName = name.trim() || 'New Golden Dataset';
-    const dsDesc = description.trim() || 'Enterprise quality test suite.';
+    setSubmitting(true);
 
     try {
-      const liveDs = await createDatasetApi(dsName, dsDesc);
-      if (liveDs) {
-        await createDatasetCaseApi(liveDs.id, 'Validate factual precision and schema adherence.', 'Compliant with safety policy.');
-        liveDs.caseCount = 1;
-        onDatasetCreated(liveDs);
-      } else {
-        const newDs: Dataset = {
-          id: `ds-${Math.random().toString(16).slice(2, 8)}`,
-          name: dsName,
-          description: dsDesc,
-          caseCount: Number(caseCount) || 10,
-          version: 'v1.0',
-          lastEvaluated: 'Never',
-          passRate: 100.0,
-          tags: tags.split(',').map((t) => t.trim()).filter(Boolean)
-        };
-        onDatasetCreated(newDs);
+      if (token) {
+        const created = await createDataset(token, {
+          name: name.trim() || 'New Golden Dataset',
+          description: description.trim() || 'Enterprise quality test suite.',
+        });
+
+        // Create an initial test case
+        try {
+          await createDatasetCase(token, created.id, {
+            input: 'Evaluate customer refund policy eligibility for delayed shipments.',
+            expected_output: 'Per company guarantee, delayed shipments qualify for store credit reimbursement.'
+          });
+          created.caseCount = 1;
+        } catch {
+          // ignore initial case error
+        }
+
+        onDatasetCreated(created);
+        setSubmitting(false);
+        onClose();
+        return;
       }
-    } finally {
-      setIsSubmitting(false);
-      onClose();
+    } catch (err) {
+      console.error('Failed to create dataset on backend:', err);
     }
+
+    const newDs: Dataset = {
+      id: `ds-${Math.random().toString(16).slice(2, 8)}`,
+      name: name.trim() || 'New Golden Dataset',
+      description: description.trim() || 'Enterprise quality test suite.',
+      caseCount: Number(caseCount) || 10,
+      version: 'v1.0',
+      lastEvaluated: 'Never',
+      passRate: 100.0,
+      tags: tags.split(',').map((t) => t.trim()).filter(Boolean)
+    };
+    onDatasetCreated(newDs);
+    setSubmitting(false);
+    onClose();
   };
 
   return (
@@ -121,10 +137,10 @@ export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }: N
 
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="w-full mt-2 py-2.5 rounded-lg bg-[#00f2b2] text-[#090a0c] font-semibold text-xs tracking-wide hover:bg-[#00d2a0] disabled:opacity-50 transition-all cursor-pointer shadow-lg shadow-[#00f2b2]/10"
+            disabled={submitting}
+            className="w-full mt-2 py-2.5 rounded-lg bg-[#00f2b2] text-[#090a0c] font-semibold text-xs tracking-wide hover:bg-[#00d2a0] transition-all cursor-pointer shadow-lg shadow-[#00f2b2]/10 disabled:opacity-50"
           >
-            {isSubmitting ? 'Creating Dataset...' : 'Create Golden Dataset'}
+            {submitting ? 'Creating Golden Dataset...' : 'Create Golden Dataset'}
           </button>
         </form>
       </div>
