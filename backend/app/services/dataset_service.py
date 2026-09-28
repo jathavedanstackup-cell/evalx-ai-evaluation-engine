@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.dataset import Dataset, DatasetCase
@@ -34,7 +34,9 @@ async def get_dataset(
 ) -> Dataset | None:
     query = select(Dataset).where(Dataset.id == dataset_id)
     if owner_user_id is not None:
-        query = query.where(Dataset.owner_user_id == owner_user_id)
+        query = query.where(
+            or_(Dataset.owner_user_id == owner_user_id, Dataset.owner_user_id.is_(None))
+        )
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
@@ -50,7 +52,9 @@ async def get_dataset_with_case_count(
         .where(Dataset.id == dataset_id)
     )
     if owner_user_id is not None:
-        query = query.where(Dataset.owner_user_id == owner_user_id)
+        query = query.where(
+            or_(Dataset.owner_user_id == owner_user_id, Dataset.owner_user_id.is_(None))
+        )
     query = query.group_by(Dataset.id)
     result = await session.execute(query)
     row = result.first()
@@ -71,8 +75,12 @@ async def list_datasets(
     count_query = select(func.count(Dataset.id))
 
     if owner_user_id is not None:
-        base_query = base_query.where(Dataset.owner_user_id == owner_user_id)
-        count_query = count_query.where(Dataset.owner_user_id == owner_user_id)
+        base_query = base_query.where(
+            or_(Dataset.owner_user_id == owner_user_id, Dataset.owner_user_id.is_(None))
+        )
+        count_query = count_query.where(
+            or_(Dataset.owner_user_id == owner_user_id, Dataset.owner_user_id.is_(None))
+        )
 
     if search:
         search_pattern = f"%{search.strip()}%"
@@ -87,7 +95,9 @@ async def list_datasets(
         DatasetCase, Dataset.id == DatasetCase.dataset_id
     )
     if owner_user_id is not None:
-        query = query.where(Dataset.owner_user_id == owner_user_id)
+        query = query.where(
+            or_(Dataset.owner_user_id == owner_user_id, Dataset.owner_user_id.is_(None))
+        )
     if search:
         query = query.where(Dataset.name.ilike(f"%{search.strip()}%"))
 

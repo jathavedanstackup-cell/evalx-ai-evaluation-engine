@@ -27,10 +27,15 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Manage app lifecycle: validate production config and dispose DB engine."""
+    """Manage app lifecycle: validate production config, seed initial data, and dispose DB engine."""
     logger.info("Starting EVALX application (environment=%s)", settings.environment)
     if settings.environment.lower() == "production":
         validate_production_settings(settings)
+    try:
+        from app.database.seeder import seed_production_benchmarks
+        await seed_production_benchmarks()
+    except Exception as seed_err:
+        logger.warning("Database seeding during startup skipped or encountered non-fatal error: %s", seed_err)
     yield
     logger.info("Shutting down EVALX application...")
     await dispose_async_engine()

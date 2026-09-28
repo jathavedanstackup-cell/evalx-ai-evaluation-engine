@@ -1,35 +1,63 @@
 import { useState } from 'react';
-import { X, Database } from 'lucide-react';
+import { X, Database, Loader2 } from 'lucide-react';
 import type { Dataset } from '../types/evalx';
+import { createDatasetApi } from '../services/api';
 
 interface NewDatasetModalProps {
   isOpen: boolean;
   onClose: () => void;
+  token?: string | null;
   onDatasetCreated: (dataset: Dataset) => void;
 }
 
-export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }: NewDatasetModalProps) {
+export default function NewDatasetModal({ isOpen, onClose, token, onDatasetCreated }: NewDatasetModalProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('production, safety');
-  const [caseCount, setCaseCount] = useState(25);
+  const [caseCount, setCaseCount] = useState(10);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newDs: Dataset = {
-      id: `ds-${Math.random().toString(16).slice(2, 8)}`,
-      name: name.trim() || 'New Golden Dataset',
-      description: description.trim() || 'Enterprise quality test suite.',
-      caseCount: Number(caseCount) || 10,
-      version: 'v1.0',
-      lastEvaluated: 'Never',
-      passRate: 100.0,
-      tags: tags.split(',').map((t) => t.trim()).filter(Boolean)
-    };
-    onDatasetCreated(newDs);
-    onClose();
+    setIsSubmitting(true);
+    setErrorMsg(null);
+
+    const effectiveToken = token || localStorage.getItem('evalx_auth_token') || '';
+
+    try {
+      if (effectiveToken) {
+        // Real Railway PostgreSQL dataset creation
+        const createdDs = await createDatasetApi(
+          effectiveToken,
+          name.trim() || 'New Golden Dataset',
+          description.trim() || 'Enterprise quality test suite.',
+          Number(caseCount) || 5
+        );
+        onDatasetCreated(createdDs);
+      } else {
+        // Fallback local creation if unauthenticated
+        const newDs: Dataset = {
+          id: `ds-${Math.random().toString(16).slice(2, 8)}`,
+          name: name.trim() || 'New Golden Dataset',
+          description: description.trim() || 'Enterprise quality test suite.',
+          caseCount: Number(caseCount) || 10,
+          version: 'v1.0',
+          lastEvaluated: 'Never',
+          passRate: 100.0,
+          tags: tags.split(',').map((t) => t.trim()).filter(Boolean)
+        };
+        onDatasetCreated(newDs);
+      }
+      onClose();
+    } catch (err: unknown) {
+      console.error('Failed to create dataset:', err);
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to persist dataset to PostgreSQL');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -49,10 +77,16 @@ export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }: N
           <div>
             <h2 className="text-lg font-bold text-white tracking-tight">Create Golden Dataset</h2>
             <p className="text-xs text-white/50">
-              Deterministic benchmark test cases for regression gates
+              Persisted directly to Railway PostgreSQL with benchmark cases
             </p>
           </div>
         </div>
+
+        {errorMsg && (
+          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono">
+            {errorMsg}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -85,7 +119,7 @@ export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }: N
               <input
                 type="number"
                 min={1}
-                max={500}
+                max={50}
                 value={caseCount}
                 onChange={(e) => setCaseCount(Number(e.target.value))}
                 className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#00f2b2]/60 font-mono-num"
@@ -104,9 +138,17 @@ export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }: N
 
           <button
             type="submit"
-            className="w-full mt-2 py-2.5 rounded-lg bg-[#00f2b2] text-[#090a0c] font-semibold text-xs tracking-wide hover:bg-[#00d2a0] transition-all cursor-pointer shadow-lg shadow-[#00f2b2]/10"
+            disabled={isSubmitting}
+            className="w-full mt-2 py-2.5 rounded-lg bg-[#00f2b2] text-[#090a0c] font-semibold text-xs tracking-wide hover:bg-[#00d2a0] transition-all cursor-pointer shadow-lg shadow-[#00f2b2]/10 flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            Create Golden Dataset
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Persisting to PostgreSQL...</span>
+              </>
+            ) : (
+              'Create Golden Dataset'
+            )}
           </button>
         </form>
       </div>

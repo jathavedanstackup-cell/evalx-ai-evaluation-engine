@@ -82,3 +82,12 @@ async def ready_check(
 @router.get("/health/worker")
 async def worker_health_check() -> dict[str, Any]:
     return await check_worker_health()
+
+
+@router.post("/health/seed")
+async def trigger_database_seed() -> dict[str, Any]:
+    """Manually trigger production benchmark dataset seeding."""
+    from app.database.seeder import seed_production_benchmarks
+    result = await seed_production_benchmarks()
+    return {"status": "ok", "result": result}
+
