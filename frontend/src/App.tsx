@@ -75,6 +75,7 @@ export default function App() {
     if (!isLoaded) return;
 
     if (isSignedIn) {
+      setCurrentView((prev) => (prev === 'landing' ? 'overview' : prev));
       getToken().then((token) => {
         if (isMounted) {
           if (token) {
