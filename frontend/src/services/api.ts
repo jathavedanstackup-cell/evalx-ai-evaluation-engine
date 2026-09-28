@@ -1,6 +1,6 @@
 import type { EvaluationRun, Dataset, OverviewMetrics, FailureCluster } from '../types/evalx';
 
-export const BACKEND_URL = import.meta.env.VITE_API_BASE_URL || 'https://api-production-bf18c.up.railway.app';
+export const BACKEND_URL = 'https://api-production-bf18c.up.railway.app';
 
 export interface BackendHealth {
   status: 'online' | 'degraded' | 'offline';
@@ -70,12 +70,12 @@ export async function checkBackendHealth(): Promise<BackendHealth> {
 
 // Fetch real datasets from Railway backend
 export async function fetchDatasets(token?: string): Promise<ApiResponse<Dataset[]>> {
-  const effectiveToken = token || '';
+  const effectiveToken = token || localStorage.getItem('evalx_auth_token') || '';
   if (!effectiveToken) {
     return {
       data: [],
       unauthenticated: true,
-      error: 'Authentication Required: No active session token for /api/v1/datasets'
+      error: 'Authentication Required: No Bearer token provided for /api/v1/datasets'
     };
   }
 
@@ -93,7 +93,7 @@ export async function fetchDatasets(token?: string): Promise<ApiResponse<Dataset
       return {
         data: [],
         unauthenticated: true,
-        error: 'HTTP 401 Unauthorized: Invalid or expired session token for /api/v1/datasets'
+        error: 'HTTP 401 Unauthorized: Invalid or missing token for /api/v1/datasets'
       };
     }
 
@@ -133,12 +133,12 @@ export async function fetchDatasets(token?: string): Promise<ApiResponse<Dataset
 
 // Fetch real evaluation runs from Railway backend
 export async function fetchEvaluationRuns(token?: string): Promise<ApiResponse<EvaluationRun[]>> {
-  const effectiveToken = token || '';
+  const effectiveToken = token || localStorage.getItem('evalx_auth_token') || '';
   if (!effectiveToken) {
     return {
       data: [],
       unauthenticated: true,
-      error: 'Authentication Required: No active session token for /api/v1/evaluations/runs'
+      error: 'Authentication Required: No Bearer token provided for /api/v1/evaluations/runs'
     };
   }
 
@@ -279,110 +279,3 @@ export function extractFailureClusters(runs: EvaluationRun[]): FailureCluster[] 
 
   return clusters;
 }
-
-// Create a real dataset on Railway backend
-export async function createDataset(
-  token: string,
-  data: { name: string; description?: string }
-): Promise<Dataset> {
-  const res = await fetch(`${BACKEND_URL}/api/v1/datasets`, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify(data)
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to create dataset (${res.status}): ${text}`);
-  }
-
-  const item = await res.json();
-  return {
-    id: item.id,
-    name: item.name,
-    description: item.description || 'Golden benchmark dataset',
-    caseCount: item.case_count || 0,
-    version: item.version || 'v1.0',
-    lastEvaluated: 'Never',
-    passRate: 100,
-    tags: ['benchmark']
-  };
-}
-
-// Create a test case for a dataset on Railway backend
-export async function createDatasetCase(
-  token: string,
-  datasetId: string,
-  data: { input: string; expected_output?: string }
-): Promise<{ id: string; input: string; expected_output?: string }> {
-  const res = await fetch(`${BACKEND_URL}/api/v1/datasets/${datasetId}/cases`, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify(data)
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to create dataset case (${res.status}): ${text}`);
-  }
-
-  return await res.json();
-}
-
-// Launch a real evaluation run on Railway backend
-export async function createEvaluationRun(
-  token: string,
-  data: {
-    dataset_id: string;
-    name?: string;
-    model_provider?: string;
-    model_name?: string;
-    evaluators?: Array<{ evaluator_type: string; backend: string; name?: string }>;
-    responses?: Array<{ case_id: string; response: string }>;
-  }
-): Promise<EvaluationRun> {
-  const res = await fetch(`${BACKEND_URL}/api/v1/evaluations/runs`, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify(data)
-  });
-
-  if (!res.ok && res.status !== 202 && res.status !== 201) {
-    const text = await res.text();
-    throw new Error(`Failed to launch evaluation run (${res.status}): ${text}`);
-  }
-
-  const r = await res.json();
-  return {
-    id: r.id,
-    name: r.name || `Evaluation ${r.id.slice(0, 8)}`,
-    model: r.model || data.model_name || 'custom-model',
-    datasetId: r.dataset_id || data.dataset_id,
-    datasetName: `Dataset ${(r.dataset_id || data.dataset_id).slice(0, 8)}`,
-    status: (r.status as EvaluationRun['status']) || 'pending',
-    score: r.score ?? 0,
-    passRate: r.total_cases ? Math.round(((r.passed_cases || 0) / r.total_cases) * 100) : 0,
-    totalCases: r.total_cases || 0,
-    passedCases: r.passed_cases || 0,
-    failedCases: r.failed_cases || 0,
-    regressionsCount: r.regressions_count || 0,
-    latencyAvgMs: r.latency_avg_ms || 0,
-    createdAt: new Date(r.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    completedAt: r.completed_at ? new Date(r.completed_at).toLocaleTimeString() : undefined,
-    triggeredBy: r.triggered_by || 'API / Web Console',
-    evaluators: []
-  };
-}
-

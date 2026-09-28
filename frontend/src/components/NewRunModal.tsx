@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { X, Play, CheckCircle2 } from 'lucide-react';
 import type { Dataset, EvaluationRun } from '../types/evalx';
-import { createEvaluationRun } from '../services/api';
 
 interface NewRunModalProps {
   isOpen: boolean;
   onClose: () => void;
   datasets: Dataset[];
-  token?: string;
   onRunCreated: (run: EvaluationRun) => void;
 }
 
@@ -25,7 +23,6 @@ export default function NewRunModal({
   isOpen,
   onClose,
   datasets,
-  token,
   onRunCreated
 }: NewRunModalProps) {
   const [selectedDatasetId, setSelectedDatasetId] = useState(datasets[0]?.id || '');
@@ -51,35 +48,11 @@ export default function NewRunModal({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     const targetDataset = datasets.find((d) => d.id === selectedDatasetId) || datasets[0];
-
-    if (token && targetDataset?.id) {
-      try {
-        const createdRun = await createEvaluationRun(token, {
-          dataset_id: targetDataset.id,
-          name: runName,
-          model_provider: 'openai',
-          model_name: candidateModel,
-          evaluators: [
-            {
-              evaluator_type: 'instruction_following',
-              backend: 'native',
-              name: 'exact_match'
-            }
-          ]
-        });
-        onRunCreated(createdRun);
-        setIsSubmitting(false);
-        onClose();
-        return;
-      } catch (err) {
-        console.error('Failed to trigger backend run:', err);
-      }
-    }
 
     setTimeout(() => {
       const newRun: EvaluationRun = {

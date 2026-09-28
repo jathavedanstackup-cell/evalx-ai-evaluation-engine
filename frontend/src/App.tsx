@@ -34,7 +34,6 @@ export default function App() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [runs, setRuns] = useState<EvaluationRun[]>([]);
   const [isUnauthenticated, setIsUnauthenticated] = useState<boolean>(!isSignedIn);
-  const [activeToken, setActiveToken] = useState<string | null>(null);
 
   const [backendHealth, setBackendHealth] = useState<BackendHealth>({
     status: 'online',
@@ -78,7 +77,6 @@ export default function App() {
     if (isSignedIn) {
       getToken().then((token) => {
         if (isMounted) {
-          setActiveToken(token);
           if (token) {
             loadBackendData(token);
           }
@@ -89,7 +87,6 @@ export default function App() {
     } else {
       Promise.resolve().then(() => {
         if (isMounted) {
-          setActiveToken(null);
           setIsUnauthenticated(true);
           setDatasets([]);
           setRuns([]);
@@ -134,7 +131,6 @@ export default function App() {
     try {
       const token = await getToken();
       if (token) {
-        setActiveToken(token);
         await loadBackendData(token);
       }
     } catch (err) {
@@ -149,7 +145,6 @@ export default function App() {
     } catch (err) {
       console.error('SignOut error:', err);
     }
-    setActiveToken(null);
     setDatasets([]);
     setRuns([]);
     setIsUnauthenticated(true);
@@ -235,14 +230,12 @@ export default function App() {
         isOpen={isNewRunModalOpen}
         onClose={() => setIsNewRunModalOpen(false)}
         datasets={datasets}
-        token={activeToken || undefined}
         onRunCreated={handleRunCreated}
       />
 
       <NewDatasetModal
         isOpen={isNewDatasetModalOpen}
         onClose={() => setIsNewDatasetModalOpen(false)}
-        token={activeToken || undefined}
         onDatasetCreated={handleDatasetCreated}
       />
 

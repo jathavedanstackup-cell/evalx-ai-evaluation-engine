@@ -1,55 +1,23 @@
 import { useState } from 'react';
 import { X, Database } from 'lucide-react';
 import type { Dataset } from '../types/evalx';
-import { createDataset, createDatasetCase } from '../services/api';
 
 interface NewDatasetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  token?: string;
   onDatasetCreated: (dataset: Dataset) => void;
 }
 
-export default function NewDatasetModal({ isOpen, onClose, token, onDatasetCreated }: NewDatasetModalProps) {
+export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }: NewDatasetModalProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('production, safety');
   const [caseCount, setCaseCount] = useState(25);
-  const [submitting, setSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
-
-    try {
-      if (token) {
-        const created = await createDataset(token, {
-          name: name.trim() || 'New Golden Dataset',
-          description: description.trim() || 'Enterprise quality test suite.',
-        });
-
-        // Create an initial test case
-        try {
-          await createDatasetCase(token, created.id, {
-            input: 'Evaluate customer refund policy eligibility for delayed shipments.',
-            expected_output: 'Per company guarantee, delayed shipments qualify for store credit reimbursement.'
-          });
-          created.caseCount = 1;
-        } catch {
-          // ignore initial case error
-        }
-
-        onDatasetCreated(created);
-        setSubmitting(false);
-        onClose();
-        return;
-      }
-    } catch (err) {
-      console.error('Failed to create dataset on backend:', err);
-    }
-
     const newDs: Dataset = {
       id: `ds-${Math.random().toString(16).slice(2, 8)}`,
       name: name.trim() || 'New Golden Dataset',
@@ -61,7 +29,6 @@ export default function NewDatasetModal({ isOpen, onClose, token, onDatasetCreat
       tags: tags.split(',').map((t) => t.trim()).filter(Boolean)
     };
     onDatasetCreated(newDs);
-    setSubmitting(false);
     onClose();
   };
 
@@ -137,10 +104,9 @@ export default function NewDatasetModal({ isOpen, onClose, token, onDatasetCreat
 
           <button
             type="submit"
-            disabled={submitting}
-            className="w-full mt-2 py-2.5 rounded-lg bg-[#00f2b2] text-[#090a0c] font-semibold text-xs tracking-wide hover:bg-[#00d2a0] transition-all cursor-pointer shadow-lg shadow-[#00f2b2]/10 disabled:opacity-50"
+            className="w-full mt-2 py-2.5 rounded-lg bg-[#00f2b2] text-[#090a0c] font-semibold text-xs tracking-wide hover:bg-[#00d2a0] transition-all cursor-pointer shadow-lg shadow-[#00f2b2]/10"
           >
-            {submitting ? 'Creating Golden Dataset...' : 'Create Golden Dataset'}
+            Create Golden Dataset
           </button>
         </form>
       </div>
