@@ -5,7 +5,8 @@ interface NavbarProps {
   currentView: 'landing' | 'overview' | 'evaluations' | 'datasets' | 'insights';
   setCurrentView: (view: 'landing' | 'overview' | 'evaluations' | 'datasets' | 'insights') => void;
   isAuthenticated: boolean;
-  onOpenAuth: () => void;
+  onOpenSignIn: () => void;
+  onOpenSignUp: () => void;
   onOpenNewRun: () => void;
   onLogout: () => void;
   backendHealth: BackendHealth;
@@ -14,8 +15,9 @@ interface NavbarProps {
 export default function Navbar({
   currentView,
   setCurrentView,
-  isAuthenticated: _isAuthenticated,
-  onOpenAuth,
+  isAuthenticated,
+  onOpenSignIn,
+  onOpenSignUp,
   onOpenNewRun,
   onLogout,
   backendHealth
@@ -129,36 +131,74 @@ export default function Navbar({
 
           {!isAppMode ? (
             <div className="flex items-center gap-2">
-              <button
-                onClick={onOpenAuth}
-                className="px-3.5 py-1.5 text-xs text-white/80 hover:text-white font-medium transition-colors cursor-pointer"
-              >
-                Sign In
-              </button>
+              {!isAuthenticated ? (
+                <>
+                  <button
+                    onClick={onOpenSignIn}
+                    className="px-3.5 py-1.5 text-xs text-white/80 hover:text-white font-medium transition-colors cursor-pointer"
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    onClick={onOpenSignUp}
+                    className="px-3.5 py-1.5 text-xs text-white/80 hover:text-white font-medium transition-colors cursor-pointer"
+                  >
+                    Sign Up
+                  </button>
+                </>
+              ) : null}
               <button
                 onClick={() => setCurrentView('overview')}
                 className="px-4 py-1.5 rounded-lg bg-[#00f2b2] text-[#08090b] text-xs font-semibold tracking-wide hover:bg-[#00d2a0] transition-all cursor-pointer shadow-lg shadow-[#00f2b2]/10"
               >
                 Launch Console
               </button>
+              {isAuthenticated && (
+                <button
+                  onClick={onLogout}
+                  title="Sign Out"
+                  className="p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-2.5">
-              <button
-                onClick={onOpenNewRun}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#00f2b2] text-[#08090b] text-xs font-semibold tracking-wide hover:bg-[#00d2a0] transition-all cursor-pointer shadow-lg shadow-[#00f2b2]/10"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>New Evaluation</span>
-              </button>
+              {!isAuthenticated ? (
+                <>
+                  <button
+                    onClick={onOpenSignIn}
+                    className="px-3 py-1.5 rounded-lg border border-[#00f2b2]/30 bg-[#00f2b2]/10 text-[#00f2b2] text-xs font-semibold hover:bg-[#00f2b2]/20 transition-all cursor-pointer"
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    onClick={onOpenSignUp}
+                    className="px-3 py-1.5 rounded-lg border border-white/20 bg-white/5 text-white text-xs font-semibold hover:bg-white/10 transition-all cursor-pointer"
+                  >
+                    Sign Up
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={onOpenNewRun}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#00f2b2] text-[#08090b] text-xs font-semibold tracking-wide hover:bg-[#00d2a0] transition-all cursor-pointer shadow-lg shadow-[#00f2b2]/10"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>New Evaluation</span>
+                  </button>
 
-              <button
-                onClick={onLogout}
-                title="Exit to Landing"
-                className="p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
+                  <button
+                    onClick={onLogout}
+                    title="Sign Out"
+                    className="p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>

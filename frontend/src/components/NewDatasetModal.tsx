@@ -25,30 +25,20 @@ export default function NewDatasetModal({ isOpen, onClose, token, onDatasetCreat
     setIsSubmitting(true);
     setErrorMsg(null);
 
-    const effectiveToken = token || localStorage.getItem('evalx_auth_token') || '';
+    if (!token) {
+      setErrorMsg('Authentication Required: Please sign in with Clerk to create a dataset.');
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
-      if (effectiveToken) {
-        const createdDs = await createDatasetApi(
-          effectiveToken,
-          name.trim() || 'New Golden Dataset',
-          description.trim() || 'Enterprise quality test suite.',
-          Number(caseCount) || 5
-        );
-        onDatasetCreated(createdDs);
-      } else {
-        const newDs: Dataset = {
-          id: `ds-${Math.random().toString(16).slice(2, 8)}`,
-          name: name.trim() || 'New Golden Dataset',
-          description: description.trim() || 'Enterprise quality test suite.',
-          caseCount: Number(caseCount) || 10,
-          version: 'v1.0',
-          lastEvaluated: 'Never',
-          passRate: 100.0,
-          tags: tags.split(',').map((t) => t.trim()).filter(Boolean)
-        };
-        onDatasetCreated(newDs);
-      }
+      const createdDs = await createDatasetApi(
+        token,
+        name.trim() || 'New Golden Dataset',
+        description.trim() || 'Enterprise quality test suite.',
+        Number(caseCount) || 5
+      );
+      onDatasetCreated(createdDs);
       onClose();
     } catch (err: unknown) {
       console.error('Failed to create dataset:', err);

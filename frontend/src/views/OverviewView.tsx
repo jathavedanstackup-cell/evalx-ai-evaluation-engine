@@ -8,6 +8,7 @@ interface OverviewViewProps {
   onNewRun: () => void;
   onNavigateToEvaluations: () => void;
   onNavigateToDatasets: () => void;
+  onOpenSignIn?: () => void;
   onOpenAuth?: () => void;
 }
 
@@ -18,8 +19,10 @@ export default function OverviewView({
   onNewRun,
   onNavigateToEvaluations,
   onNavigateToDatasets,
+  onOpenSignIn,
   onOpenAuth
 }: OverviewViewProps) {
+  const handleSignIn = onOpenSignIn || onOpenAuth;
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
       {/* Header with Project Status */}
@@ -63,12 +66,12 @@ export default function OverviewView({
               <strong className="text-white">Railway Production API Connected:</strong> Historical runs and golden datasets require tenant authentication (HTTP 401).
             </span>
           </div>
-          {onOpenAuth && (
+          {handleSignIn && (
             <button
-              onClick={onOpenAuth}
+              onClick={handleSignIn}
               className="px-3 py-1.5 rounded-lg bg-[#00f2b2]/10 hover:bg-[#00f2b2]/20 border border-[#00f2b2]/30 text-[#00f2b2] font-semibold text-xs transition-colors shrink-0 cursor-pointer"
             >
-              Connect API Token / Sign In
+              Sign In with Clerk
             </button>
           )}
         </div>

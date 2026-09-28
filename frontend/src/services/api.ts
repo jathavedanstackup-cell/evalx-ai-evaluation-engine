@@ -70,7 +70,7 @@ export async function checkBackendHealth(): Promise<BackendHealth> {
 
 // Fetch real datasets from Railway backend
 export async function fetchDatasets(token?: string): Promise<ApiResponse<Dataset[]>> {
-  const effectiveToken = token || localStorage.getItem('evalx_auth_token') || '';
+  const effectiveToken = token || '';
   if (!effectiveToken) {
     return {
       data: [],
@@ -133,7 +133,7 @@ export async function fetchDatasets(token?: string): Promise<ApiResponse<Dataset
 
 // Fetch real evaluation runs from Railway backend
 export async function fetchEvaluationRuns(token?: string): Promise<ApiResponse<EvaluationRun[]>> {
-  const effectiveToken = token || localStorage.getItem('evalx_auth_token') || '';
+  const effectiveToken = token || '';
   if (!effectiveToken) {
     return {
       data: [],

@@ -58,79 +58,40 @@ export default function NewRunModal({
     setErrorMsg(null);
 
     const targetDataset = datasets.find((d) => d.id === selectedDatasetId) || datasets[0];
-    const effectiveToken = token || localStorage.getItem('evalx_auth_token') || '';
 
-    if (effectiveToken && targetDataset) {
-      try {
-        const queuedRun = await createEvaluationRunApi(
-          effectiveToken,
-          targetDataset.id,
-          candidateModel,
-          runName,
-          selectedEvaluators
-        );
+    if (!token) {
+      setErrorMsg('Authentication Required: Please sign in with Clerk to launch an evaluation run.');
+      setIsSubmitting(false);
+      return;
+    }
 
-        onRunCreated(queuedRun);
-        onClose();
+    if (!targetDataset) {
+      setErrorMsg('Dataset Required: Please select or create a dataset before running an evaluation.');
+      setIsSubmitting(false);
+      return;
+    }
 
-        pollRunUntilComplete(effectiveToken, queuedRun.id, (updated) => {
-          onRunCreated(updated);
-        }).catch((pollErr) => {
-          console.warn('Worker polling notice:', pollErr);
-        });
-      } catch (err: unknown) {
-        console.error('Failed to launch evaluation run:', err);
-        setErrorMsg(err instanceof Error ? err.message : 'Failed to enqueue evaluation run');
-        setIsSubmitting(false);
-      }
-    } else {
-      setTimeout(() => {
-        const newRun: EvaluationRun = {
-          id: `run-${Math.random().toString(16).slice(2, 10)}`,
-          name: runName,
-          model: candidateModel,
-          baselineModel: baselineModel,
-          datasetId: targetDataset ? targetDataset.id : 'demo-ds',
-          datasetName: targetDataset ? targetDataset.name : 'Golden Benchmark',
-          status: 'completed',
-          score: 98.2,
-          passRate: 98.2,
-          totalCases: targetDataset ? targetDataset.caseCount : 10,
-          passedCases: targetDataset ? Math.round(targetDataset.caseCount * 0.982) : 10,
-          failedCases: targetDataset ? targetDataset.caseCount - Math.round(targetDataset.caseCount * 0.982) : 0,
-          regressionsCount: 0,
-          latencyAvgMs: 220,
-          createdAt: 'Just now',
-          completedAt: 'Just now',
-          triggeredBy: 'Web Console',
-          evaluators: [
-            { name: 'Semantic Similarity', type: 'semantic_similarity', score: 0.97, threshold: 0.85, passed: true },
-            { name: 'Exact Match Criteria', type: 'exact_match', score: 0.99, threshold: 0.95, passed: true },
-            { name: 'Latency SLA (<400ms)', type: 'latency_sla', score: 220, threshold: 400, passed: true }
-          ],
-          cases: [
-            {
-              id: 'c-1',
-              caseNumber: 1,
-              inputPrompt: 'Validate customer refund policy eligibility for delayed shipments.',
-              expectedOutput: 'Empathetic greeting, citation of §3.4 clause, issuance of store credit without friction.',
-              actualOutput: 'Thank you for reaching out. Per our customer guarantee (§3.4), your shipment qualifies for full reimbursement via store credit. I have credited your account.',
-              passed: true,
-              regression: false,
-              latencyMs: 195,
-              tokensUsed: 54,
-              evaluatorBreakdown: [
-                { name: 'Semantic Alignment', passed: true, score: 0.98 },
-                { name: 'Policy Citation', passed: true, score: 1.0 }
-              ]
-            }
-          ]
-        };
+    try {
+      const queuedRun = await createEvaluationRunApi(
+        token,
+        targetDataset.id,
+        candidateModel,
+        runName,
+        selectedEvaluators
+      );
 
-        onRunCreated(newRun);
-        setIsSubmitting(false);
-        onClose();
-      }, 700);
+      onRunCreated(queuedRun);
+      onClose();
+
+      pollRunUntilComplete(token, queuedRun.id, (updated) => {
+        onRunCreated(updated);
+      }).catch((pollErr) => {
+        console.warn('Worker polling notice:', pollErr);
+      });
+    } catch (err: unknown) {
+      console.error('Failed to launch evaluation run:', err);
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to enqueue evaluation run');
+      setIsSubmitting(false);
     }
   };
 

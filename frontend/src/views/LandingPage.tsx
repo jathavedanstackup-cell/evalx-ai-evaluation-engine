@@ -5,10 +5,12 @@ import { BACKEND_URL } from '../services/api';
 
 interface LandingPageProps {
   onLaunchConsole: () => void;
-  onOpenAuth: () => void;
+  onOpenSignUp?: () => void;
+  onOpenAuth?: () => void;
 }
 
-export default function LandingPage({ onLaunchConsole, onOpenAuth }: LandingPageProps) {
+export default function LandingPage({ onLaunchConsole, onOpenSignUp, onOpenAuth }: LandingPageProps) {
+  const handleSignUp = onOpenSignUp || onOpenAuth;
   return (
     <div className="relative w-full overflow-hidden bg-[#08090b]">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-[radial-gradient(ellipse_at_top,rgba(0,242,178,0.08)_0%,rgba(8,9,11,0)_70%)] pointer-events-none" />
@@ -244,7 +246,7 @@ export default function LandingPage({ onLaunchConsole, onOpenAuth }: LandingPage
             Launch Evaluation Console
           </button>
           <button
-            onClick={onOpenAuth}
+            onClick={handleSignUp}
             className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/10 text-white font-medium text-sm transition-all cursor-pointer"
           >
             Create Team Account

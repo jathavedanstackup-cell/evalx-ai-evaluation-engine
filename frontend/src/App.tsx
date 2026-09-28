@@ -7,7 +7,6 @@ import OverviewView from './views/OverviewView';
 import EvaluationsView from './views/EvaluationsView';
 import DatasetsView from './views/DatasetsView';
 import InsightsView from './views/InsightsView';
-import AuthModal from './components/AuthModal';
 import NewRunModal from './components/NewRunModal';
 import NewDatasetModal from './components/NewDatasetModal';
 import EvaluationDetailModal from './components/EvaluationDetailModal';
@@ -23,10 +22,9 @@ import type { EvaluationRun, Dataset } from './types/evalx';
 
 export default function App() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
-  const { signOut } = useClerk();
+  const { openSignIn, openSignUp, signOut } = useClerk();
 
   const [currentView, setCurrentView] = useState<'landing' | 'overview' | 'evaluations' | 'datasets' | 'insights'>('landing');
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isNewRunModalOpen, setIsNewRunModalOpen] = useState<boolean>(false);
   const [isNewDatasetModalOpen, setIsNewDatasetModalOpen] = useState<boolean>(false);
   const [selectedRun, setSelectedRun] = useState<EvaluationRun | null>(null);
@@ -130,19 +128,6 @@ export default function App() {
     setCurrentView('overview');
   };
 
-  const handleAuthSuccess = async () => {
-    try {
-      const token = await getToken();
-      if (token) {
-        setActiveToken(token);
-        await loadBackendData(token);
-      }
-    } catch (err) {
-      console.error('Error acquiring token after auth:', err);
-    }
-    setCurrentView('overview');
-  };
-
   const handleLogout = async () => {
     try {
       await signOut();
@@ -175,7 +160,8 @@ export default function App() {
         currentView={currentView}
         setCurrentView={setCurrentView}
         isAuthenticated={Boolean(isSignedIn)}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenSignIn={() => openSignIn()}
+        onOpenSignUp={() => openSignUp()}
         onOpenNewRun={() => setIsNewRunModalOpen(true)}
         onLogout={handleLogout}
         backendHealth={backendHealth}
@@ -185,7 +171,7 @@ export default function App() {
         {currentView === 'landing' && (
           <LandingPage
             onLaunchConsole={handleLaunchConsole}
-            onOpenAuth={() => setIsAuthModalOpen(true)}
+            onOpenSignUp={() => openSignUp()}
           />
         )}
 
@@ -197,7 +183,7 @@ export default function App() {
             onNewRun={() => setIsNewRunModalOpen(true)}
             onNavigateToEvaluations={() => setCurrentView('evaluations')}
             onNavigateToDatasets={() => setCurrentView('datasets')}
-            onOpenAuth={() => setIsAuthModalOpen(true)}
+            onOpenSignIn={() => openSignIn()}
           />
         )}
 
@@ -223,13 +209,6 @@ export default function App() {
       </main>
 
       <Footer />
-
-      {/* Global Modals */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onSuccess={handleAuthSuccess}
-      />
 
       <NewRunModal
         isOpen={isNewRunModalOpen}

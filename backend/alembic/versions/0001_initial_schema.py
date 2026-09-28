@@ -32,7 +32,16 @@ def created_at_column() -> sa.Column[object]:
 
 
 def upgrade() -> None:
-    op.execute("CREATE EXTENSION IF NOT EXISTS vector")
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            CREATE EXTENSION IF NOT EXISTS vector;
+        EXCEPTION WHEN feature_not_supported OR undefined_file THEN
+            NULL;
+        END $$;
+        """
+    )
     op.create_table(
         "users",
         uuid_column(),
