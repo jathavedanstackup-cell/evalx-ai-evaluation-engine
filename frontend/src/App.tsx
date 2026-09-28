@@ -157,15 +157,7 @@ export default function App() {
   };
 
   const handleRunCreated = (newRun: EvaluationRun) => {
-    setRuns((prev) => {
-      const idx = prev.findIndex((r) => r.id === newRun.id);
-      if (idx >= 0) {
-        const copy = [...prev];
-        copy[idx] = newRun;
-        return copy;
-      }
-      return [newRun, ...prev];
-    });
+    setRuns((prev) => [newRun, ...prev]);
     setSelectedRun(newRun);
   };
 

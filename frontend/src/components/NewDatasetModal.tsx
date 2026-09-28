@@ -6,7 +6,7 @@ import { createDatasetApi } from '../services/api';
 interface NewDatasetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  token?: string | null;
+  token?: string;
   onDatasetCreated: (dataset: Dataset) => void;
 }
 
@@ -29,7 +29,6 @@ export default function NewDatasetModal({ isOpen, onClose, token, onDatasetCreat
 
     try {
       if (effectiveToken) {
-        // Real Railway PostgreSQL dataset creation
         const createdDs = await createDatasetApi(
           effectiveToken,
           name.trim() || 'New Golden Dataset',
@@ -38,7 +37,6 @@ export default function NewDatasetModal({ isOpen, onClose, token, onDatasetCreat
         );
         onDatasetCreated(createdDs);
       } else {
-        // Fallback local creation if unauthenticated
         const newDs: Dataset = {
           id: `ds-${Math.random().toString(16).slice(2, 8)}`,
           name: name.trim() || 'New Golden Dataset',

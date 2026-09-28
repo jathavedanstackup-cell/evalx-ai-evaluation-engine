@@ -272,7 +272,6 @@ class LiteLLMJudge(BaseLLMJudge):
             raise
         except Exception as err:
             err_name = type(err).__name__
-            err_str = str(err).lower()
             if "Timeout" in err_name:
                 raise EvaluationTimeoutError(
                     message=(
@@ -281,18 +280,6 @@ class LiteLLMJudge(BaseLLMJudge):
                     ),
                     details={"model": self._model, "timeout": self._timeout},
                 ) from err
-
-            # Resilient fallback: If no external LLM API key is present in environment,
-            # execute deterministic semantic/rubric evaluation so background workers never abort with 500
-            if any(k in err_str for k in ["api key", "apikey", "auth", "credential", "unauthorized", "bearer", "missing"]):
-                import logging
-                logging.getLogger(__name__).warning(
-                    "LiteLLM missing provider API key or auth failed for model '%s': %s. "
-                    "Executing resilient deterministic fallback evaluation.",
-                    self._model,
-                    err_name,
-                )
-                return self._fallback_heuristic_evaluation(request, start_time)
 
             safe_error_msg = self._sanitize(str(err))
             raise EvaluatorExecutionError(
@@ -373,52 +360,3 @@ class LiteLLMJudge(BaseLLMJudge):
         if hasattr(request, "to_judge_request"):
             return await self.judge(request.to_judge_request())
         return await self.judge(request)
-
-    def _fallback_heuristic_evaluation(
-        self, request: JudgeRequest, start_time: float
-    ) -> JudgeResponse:
-        cand_text = request.response.lower().strip()
-        ref_text = (request.reference or "").lower().strip()
-        prompt_text = request.prompt.lower().strip()
-
-        cand_words = set(re.findall(r"\b[a-z0-9_-]{3,}\b", cand_text))
-        ref_words = set(re.findall(r"\b[a-z0-9_-]{3,}\b", ref_text)) if ref_text else set()
-        prompt_words = set(re.findall(r"\b[a-z0-9_-]{3,}\b", prompt_text))
-
-        if ref_words:
-            common_ref = cand_words.intersection(ref_words)
-            jaccard_ref = len(common_ref) / max(len(ref_words), 1)
-            raw_score = 0.55 + 0.45 * min(1.0, jaccard_ref * 1.5)
-        else:
-            common_prompt = cand_words.intersection(prompt_words)
-            jaccard_prompt = len(common_prompt) / max(len(prompt_words), 1)
-            raw_score = 0.65 + 0.35 * min(1.0, jaccard_prompt * 2.0)
-
-        score = max(0.0, min(1.0, round(raw_score, 3)))
-        thresh = request.threshold if request.threshold is not None else 0.8
-        passed = score >= thresh
-
-        duration_ms = (time.perf_counter() - start_time) * 1000.0
-        pct = int(score * 100)
-        return JudgeResponse(
-            score=score,
-            passed=passed,
-            rationale=(
-                f"Evaluated against assertion criteria using semantic rubric alignment "
-                f"(Judge model '{self._model}' in deterministic heuristic mode). "
-                f"Adherence score: {pct}%."
-            ),
-            evidence=[
-                f"Candidate assertion matches expected criteria with {pct}% adherence."
-            ],
-            claims=[
-                f"Claim verification: {len(cand_words)} key tokens evaluated against ground truth."
-            ],
-            metadata={
-                "model": self._model,
-                "fallback_mode": True,
-                "latency_ms": duration_ms,
-            },
-            raw_response="[Heuristic Evaluation]",
-        )
-

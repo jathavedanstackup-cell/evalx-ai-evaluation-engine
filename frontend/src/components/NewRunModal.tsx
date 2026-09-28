@@ -7,7 +7,7 @@ interface NewRunModalProps {
   isOpen: boolean;
   onClose: () => void;
   datasets: Dataset[];
-  token?: string | null;
+  token?: string;
   onRunCreated: (run: EvaluationRun) => void;
 }
 
@@ -62,7 +62,6 @@ export default function NewRunModal({
 
     if (effectiveToken && targetDataset) {
       try {
-        // Real Railway Redis + ARQ Worker execution
         const queuedRun = await createEvaluationRunApi(
           effectiveToken,
           targetDataset.id,
@@ -74,7 +73,6 @@ export default function NewRunModal({
         onRunCreated(queuedRun);
         onClose();
 
-        // Background poll the real worker status until completed
         pollRunUntilComplete(effectiveToken, queuedRun.id, (updated) => {
           onRunCreated(updated);
         }).catch((pollErr) => {
@@ -86,7 +84,6 @@ export default function NewRunModal({
         setIsSubmitting(false);
       }
     } else {
-      // Fallback local simulation if unauthenticated
       setTimeout(() => {
         const newRun: EvaluationRun = {
           id: `run-${Math.random().toString(16).slice(2, 10)}`,

@@ -411,7 +411,7 @@ export async function createEvaluationRunApi(
     triggeredBy: 'Web Console / ARQ Worker',
     evaluators: evaluatorTypes.map((t) => ({
       name: t === 'exact_match' ? 'Exact Match Criteria' : 'Semantic Similarity',
-      type: t as any,
+      type: t as 'exact_match' | 'semantic_similarity',
       score: 0,
       threshold: 0.85,
       passed: false
@@ -486,7 +486,7 @@ export async function pollRunUntilComplete(
           });
           if (resultsRes.ok) {
             const resultsJson = await resultsRes.json();
-            const cases: TestCaseResult[] = (resultsJson.items || []).map((c: any, idx: number) => ({
+            const cases: TestCaseResult[] = (resultsJson.items || []).map((c: { id: string; response?: string; passed?: boolean; execution_time_ms?: number; feedback?: string; overall_score?: number }, idx: number) => ({
               id: c.id,
               caseNumber: idx + 1,
               inputPrompt: `Test Case ${idx + 1} assertion check`,

@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -208,9 +208,7 @@ async def submit_evaluation_run(
     # 2. Validate Dataset and Cases exist and are accessible
     dataset_query = select(Dataset).where(Dataset.id == data.dataset_id)
     if owner_user_id is not None:
-        dataset_query = dataset_query.where(
-            or_(Dataset.owner_user_id == owner_user_id, Dataset.owner_user_id.is_(None))
-        )
+        dataset_query = dataset_query.where(Dataset.owner_user_id == owner_user_id)
     dataset = await session.scalar(dataset_query)
     if dataset is None:
         raise HTTPException(
@@ -285,9 +283,7 @@ async def submit_evaluation_run(
         if owner_user_id is not None:
             eval_query = eval_query.join(
                 Dataset, Evaluation.dataset_id == Dataset.id
-            ).where(
-                or_(Dataset.owner_user_id == owner_user_id, Dataset.owner_user_id.is_(None))
-            )
+            ).where(Dataset.owner_user_id == owner_user_id)
         existing_eval = await session.scalar(eval_query)
         if existing_eval is None:
             raise HTTPException(
@@ -1064,10 +1060,7 @@ async def get_evaluation_run(
             .join(Evaluation.dataset)
             .where(
                 EvaluationRun.id == run_id,
-                or_(
-                    Dataset.owner_user_id == owner_user_id,
-                    Dataset.owner_user_id.is_(None),
-                ),
+                Dataset.owner_user_id == owner_user_id,
             )
         )
     else:
@@ -1087,10 +1080,7 @@ async def list_evaluation_runs(
     base_query = select(EvaluationRun).join(EvaluationRun.evaluation)
     if owner_user_id is not None:
         base_query = base_query.join(Evaluation.dataset).where(
-            or_(
-                Dataset.owner_user_id == owner_user_id,
-                Dataset.owner_user_id.is_(None),
-            )
+            Dataset.owner_user_id == owner_user_id
         )
 
     if dataset_id is not None:
