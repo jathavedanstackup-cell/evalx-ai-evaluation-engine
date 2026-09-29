@@ -91,16 +91,16 @@ export default function InsightsView({ clusters }: InsightsViewProps) {
           </p>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left font-mono-num text-xs">
+        <div className="overflow-x-auto -mx-2 sm:mx-0 px-2 sm:px-0">
+          <table className="w-full min-w-[640px] text-left font-mono-num text-xs">
             <thead>
               <tr className="border-b border-white/10 text-white/40">
-                <th className="pb-3 font-medium">MODEL</th>
-                <th className="pb-3 font-medium">REASONING SPEC</th>
-                <th className="pb-3 font-medium">POLICY SAFETY</th>
-                <th className="pb-3 font-medium">P95 LATENCY SLA</th>
-                <th className="pb-3 font-medium">COST / 1K TOKENS</th>
-                <th className="pb-3 font-medium text-right">GATE STATUS</th>
+                <th className="pb-3 font-medium whitespace-nowrap">MODEL</th>
+                <th className="pb-3 font-medium whitespace-nowrap">REASONING SPEC</th>
+                <th className="pb-3 font-medium whitespace-nowrap">POLICY SAFETY</th>
+                <th className="pb-3 font-medium whitespace-nowrap">P95 LATENCY SLA</th>
+                <th className="pb-3 font-medium whitespace-nowrap">COST / 1K TOKENS</th>
+                <th className="pb-3 font-medium text-right whitespace-nowrap">GATE STATUS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
