@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, Play, CheckCircle2, Loader2 } from 'lucide-react';
+import { useAuth } from '@clerk/clerk-react';
 import type { Dataset, EvaluationRun } from '../types/evalx';
 import { createEvaluationRunApi, pollRunUntilComplete } from '../services/api';
 
@@ -28,6 +29,7 @@ export default function NewRunModal({
   token,
   onRunCreated
 }: NewRunModalProps) {
+  const { getToken } = useAuth();
   const [selectedDatasetId, setSelectedDatasetId] = useState(datasets[0]?.id || '');
   const [candidateModel, setCandidateModel] = useState('gpt-4o-2024-08-06');
   const [baselineModel, setBaselineModel] = useState('gpt-4o-2024-05-13');
@@ -59,7 +61,8 @@ export default function NewRunModal({
 
     const targetDataset = datasets.find((d) => d.id === selectedDatasetId) || datasets[0];
 
-    if (!token) {
+    const freshToken = (await getToken()) || token;
+    if (!freshToken) {
       setErrorMsg('Authentication Required: Please sign in with Clerk to launch an evaluation run.');
       setIsSubmitting(false);
       return;
@@ -73,7 +76,7 @@ export default function NewRunModal({
 
     try {
       const queuedRun = await createEvaluationRunApi(
-        token,
+        freshToken,
         targetDataset.id,
         candidateModel,
         runName,
@@ -83,7 +86,7 @@ export default function NewRunModal({
       onRunCreated(queuedRun);
       onClose();
 
-      pollRunUntilComplete(token, queuedRun.id, (updated) => {
+      pollRunUntilComplete(freshToken, queuedRun.id, (updated) => {
         onRunCreated(updated);
       }).catch((pollErr) => {
         console.warn('Worker polling notice:', pollErr);

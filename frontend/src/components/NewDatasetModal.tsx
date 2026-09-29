@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, Database, Loader2 } from 'lucide-react';
+import { useAuth } from '@clerk/clerk-react';
 import type { Dataset } from '../types/evalx';
 import { createDatasetApi } from '../services/api';
 
@@ -11,6 +12,7 @@ interface NewDatasetModalProps {
 }
 
 export default function NewDatasetModal({ isOpen, onClose, token, onDatasetCreated }: NewDatasetModalProps) {
+  const { getToken } = useAuth();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('production, safety');
@@ -25,7 +27,8 @@ export default function NewDatasetModal({ isOpen, onClose, token, onDatasetCreat
     setIsSubmitting(true);
     setErrorMsg(null);
 
-    if (!token) {
+    const freshToken = (await getToken()) || token;
+    if (!freshToken) {
       setErrorMsg('Authentication Required: Please sign in with Clerk to create a dataset.');
       setIsSubmitting(false);
       return;
@@ -33,7 +36,7 @@ export default function NewDatasetModal({ isOpen, onClose, token, onDatasetCreat
 
     try {
       const createdDs = await createDatasetApi(
-        token,
+        freshToken,
         name.trim() || 'New Golden Dataset',
         description.trim() || 'Enterprise quality test suite.',
         Number(caseCount) || 5
