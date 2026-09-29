@@ -66,7 +66,7 @@ export default function LandingPage({ onLaunchConsole, onOpenSignUp, onOpenAuth 
             </div>
           </div>
 
-          <div className="lg:col-span-5 relative flex items-center justify-center">
+          <div className="lg:col-span-5 relative flex items-center justify-center w-full">
             <HeroSignalRing />
           </div>
         </div>

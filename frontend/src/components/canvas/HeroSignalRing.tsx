@@ -214,7 +214,7 @@ function SceneContainer({ isHovered }: { isHovered: boolean }) {
   });
 
   return (
-    <group ref={groupRef} rotation={[0.12, -0.22, 0]}>
+    <group ref={groupRef} rotation={[0.08, -0.16, 0]} scale={0.78}>
       {/* Key Light: Crisp chamfer highlights */}
       <directionalLight position={[4, 6, 4]} intensity={1.5} color="#ffffff" />
       {/* Rim Light: Cool slate rim */}
@@ -236,7 +236,7 @@ export default function HeroSignalRing() {
 
   return (
     <div
-      className="relative w-full h-[380px] sm:h-[440px] lg:h-[500px] flex items-center justify-center select-none"
+      className="relative w-full aspect-square max-w-[360px] sm:max-w-[420px] lg:max-w-[480px] xl:max-w-[500px] mx-auto flex items-center justify-center select-none"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -249,17 +249,17 @@ export default function HeroSignalRing() {
         </div>
       }>
         <Canvas
-          camera={{ position: [0, 0, 5.0], fov: 42 }}
+          camera={{ position: [0, 0, 5.8], fov: 45 }}
           dpr={[1, 2]}
           gl={{ antialias: true, alpha: true }}
-          style={{ pointerEvents: 'auto', background: 'transparent' }}
+          style={{ width: '100%', height: '100%', pointerEvents: 'auto', background: 'transparent' }}
         >
           <SceneContainer isHovered={isHovered} />
         </Canvas>
       </Suspense>
 
       {/* Floating Precision Telemetry Badge */}
-      <div className="absolute bottom-3 left-4 md:left-6 glass-panel px-3.5 py-1.5 rounded-lg text-xs font-mono-num flex items-center gap-3 border border-white/10 shadow-xl pointer-events-none">
+      <div className="absolute bottom-2 sm:bottom-4 left-1/2 -translate-x-1/2 sm:left-4 sm:translate-x-0 glass-panel px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-mono-num flex items-center gap-2.5 sm:gap-3 border border-white/10 shadow-xl pointer-events-none whitespace-nowrap z-10">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-[#00f2b2] animate-pulse" />
           <span className="text-[#00f2b2] font-semibold">PASS STREAM: 98.4%</span>
