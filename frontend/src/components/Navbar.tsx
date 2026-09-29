@@ -203,6 +203,44 @@ export default function Navbar({
           )}
         </div>
       </div>
+
+      {/* Mobile App Navigation Strip */}
+      {isAppMode && (
+        <div className="flex md:hidden border-t border-white/[0.06] bg-[#090b0e] px-2 py-1.5 items-center justify-around text-xs">
+          <button
+            onClick={() => setCurrentView('overview')}
+            className={`px-3 py-1 rounded-md font-medium transition-all ${
+              currentView === 'overview' ? 'text-[#00f2b2] bg-white/10 font-semibold' : 'text-white/60 hover:text-white'
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setCurrentView('evaluations')}
+            className={`px-3 py-1 rounded-md font-medium transition-all ${
+              currentView === 'evaluations' ? 'text-[#00f2b2] bg-white/10 font-semibold' : 'text-white/60 hover:text-white'
+            }`}
+          >
+            Evaluations
+          </button>
+          <button
+            onClick={() => setCurrentView('datasets')}
+            className={`px-3 py-1 rounded-md font-medium transition-all ${
+              currentView === 'datasets' ? 'text-[#00f2b2] bg-white/10 font-semibold' : 'text-white/60 hover:text-white'
+            }`}
+          >
+            Datasets
+          </button>
+          <button
+            onClick={() => setCurrentView('insights')}
+            className={`px-3 py-1 rounded-md font-medium transition-all ${
+              currentView === 'insights' ? 'text-[#00f2b2] bg-white/10 font-semibold' : 'text-white/60 hover:text-white'
+            }`}
+          >
+            Insights
+          </button>
+        </div>
+      )}
     </header>
   );
 }

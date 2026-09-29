@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, CheckCircle2, AlertTriangle, ShieldCheck, Cpu, GitCompare, FileText } from 'lucide-react';
 import type { EvaluationRun } from '../types/evalx';
 
@@ -9,6 +9,17 @@ interface EvaluationDetailModalProps {
 
 export default function EvaluationDetailModal({ run, onClose }: EvaluationDetailModalProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'evaluators' | 'cases' | 'comparison'>('overview');
+
+  useEffect(() => {
+    if (!run) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [run, onClose]);
 
   if (!run) return null;
 

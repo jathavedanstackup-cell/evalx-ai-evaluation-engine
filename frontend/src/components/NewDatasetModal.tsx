@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Database, Loader2 } from 'lucide-react';
-import { useAuth } from '@clerk/clerk-react';
 import type { Dataset } from '../types/evalx';
 import { createDatasetApi } from '../services/api';
 
@@ -12,13 +11,23 @@ interface NewDatasetModalProps {
 }
 
 export default function NewDatasetModal({ isOpen, onClose, token, onDatasetCreated }: NewDatasetModalProps) {
-  const { getToken } = useAuth();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('production, safety');
   const [caseCount, setCaseCount] = useState(10);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -27,8 +36,7 @@ export default function NewDatasetModal({ isOpen, onClose, token, onDatasetCreat
     setIsSubmitting(true);
     setErrorMsg(null);
 
-    const freshToken = (await getToken()) || token;
-    if (!freshToken) {
+    if (!token) {
       setErrorMsg('Authentication Required: Please sign in with Clerk to create a dataset.');
       setIsSubmitting(false);
       return;
@@ -36,7 +44,7 @@ export default function NewDatasetModal({ isOpen, onClose, token, onDatasetCreat
 
     try {
       const createdDs = await createDatasetApi(
-        freshToken,
+        token,
         name.trim() || 'New Golden Dataset',
         description.trim() || 'Enterprise quality test suite.',
         Number(caseCount) || 5
@@ -127,20 +135,29 @@ export default function NewDatasetModal({ isOpen, onClose, token, onDatasetCreat
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full mt-2 py-2.5 rounded-lg bg-[#00f2b2] text-[#090a0c] font-semibold text-xs tracking-wide hover:bg-[#00d2a0] transition-all cursor-pointer shadow-lg shadow-[#00f2b2]/10 flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Persisting to PostgreSQL...</span>
-              </>
-            ) : (
-              'Create Golden Dataset'
-            )}
-          </button>
+          <div className="flex items-center gap-3 mt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-lg border border-white/10 hover:bg-white/5 text-white/70 hover:text-white font-medium text-xs transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 py-2.5 rounded-lg bg-[#00f2b2] text-[#090a0c] font-semibold text-xs tracking-wide hover:bg-[#00d2a0] transition-all cursor-pointer shadow-lg shadow-[#00f2b2]/10 flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Persisting to PostgreSQL...</span>
+                </>
+              ) : (
+                'Create Golden Dataset'
+              )}
+            </button>
+          </div>
         </form>
       </div>
     </div>

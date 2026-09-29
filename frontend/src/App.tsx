@@ -47,8 +47,7 @@ export default function App() {
     const health = await checkBackendHealth();
     setBackendHealth(health);
 
-    const freshToken = token || (await getToken());
-    if (!freshToken) {
+    if (!token) {
       setIsUnauthenticated(true);
       setDatasets([]);
       setRuns([]);
@@ -56,8 +55,8 @@ export default function App() {
     }
 
     const [dsRes, runsRes] = await Promise.all([
-      fetchDatasets(freshToken),
-      fetchEvaluationRuns(freshToken)
+      fetchDatasets(token),
+      fetchEvaluationRuns(token)
     ]);
 
     if (dsRes.unauthenticated || runsRes.unauthenticated) {
@@ -67,7 +66,7 @@ export default function App() {
       setDatasets(dsRes.data);
       setRuns(runsRes.data);
     }
-  }, [getToken]);
+  }, []);
 
   // Fetch token and sync with Clerk auth state
   useEffect(() => {

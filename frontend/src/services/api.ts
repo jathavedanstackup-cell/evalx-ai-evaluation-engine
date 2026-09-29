@@ -364,8 +364,8 @@ export async function createEvaluationRunApi(
   evaluatorTypes: string[] = ['semantic_similarity', 'exact_match']
 ): Promise<EvaluationRun> {
   const evaluatorsPayload = evaluatorTypes.map((t) => {
-    if (t === 'exact_match') {
-      return { evaluator_type: 'exact_match', backend: 'native', threshold: 0.90 };
+    if (t === 'exact_match' || t === 'json_schema') {
+      return { evaluator_type: 'instruction_following', backend: 'native', threshold: 0.90 };
     }
     return { evaluator_type: 'factuality', backend: 'llm_judge', threshold: 0.85 };
   });

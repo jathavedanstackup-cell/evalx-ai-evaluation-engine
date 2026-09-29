@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Play, CheckCircle2, Loader2 } from 'lucide-react';
-import { useAuth } from '@clerk/clerk-react';
 import type { Dataset, EvaluationRun } from '../types/evalx';
 import { createEvaluationRunApi, pollRunUntilComplete } from '../services/api';
 
@@ -29,7 +28,6 @@ export default function NewRunModal({
   token,
   onRunCreated
 }: NewRunModalProps) {
-  const { getToken } = useAuth();
   const [selectedDatasetId, setSelectedDatasetId] = useState(datasets[0]?.id || '');
   const [candidateModel, setCandidateModel] = useState('gpt-4o-2024-08-06');
   const [baselineModel, setBaselineModel] = useState('gpt-4o-2024-05-13');
@@ -41,6 +39,17 @@ export default function NewRunModal({
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -61,8 +70,7 @@ export default function NewRunModal({
 
     const targetDataset = datasets.find((d) => d.id === selectedDatasetId) || datasets[0];
 
-    const freshToken = (await getToken()) || token;
-    if (!freshToken) {
+    if (!token) {
       setErrorMsg('Authentication Required: Please sign in with Clerk to launch an evaluation run.');
       setIsSubmitting(false);
       return;
@@ -76,7 +84,7 @@ export default function NewRunModal({
 
     try {
       const queuedRun = await createEvaluationRunApi(
-        freshToken,
+        token,
         targetDataset.id,
         candidateModel,
         runName,
@@ -86,7 +94,7 @@ export default function NewRunModal({
       onRunCreated(queuedRun);
       onClose();
 
-      pollRunUntilComplete(freshToken, queuedRun.id, (updated) => {
+      pollRunUntilComplete(token, queuedRun.id, (updated) => {
         onRunCreated(updated);
       }).catch((pollErr) => {
         console.warn('Worker polling notice:', pollErr);
@@ -218,11 +226,18 @@ export default function NewRunModal({
             </div>
           </div>
 
-          <div className="pt-2">
+          <div className="pt-2 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-lg border border-white/10 hover:bg-white/5 text-white/70 hover:text-white font-medium text-xs transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-2.5 rounded-lg bg-[#00f2b2] text-[#090a0c] font-semibold text-xs tracking-wide hover:bg-[#00d2a0] transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-[#00f2b2]/10 flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-lg bg-[#00f2b2] text-[#090a0c] font-semibold text-xs tracking-wide hover:bg-[#00d2a0] transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-[#00f2b2]/10 flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <>
